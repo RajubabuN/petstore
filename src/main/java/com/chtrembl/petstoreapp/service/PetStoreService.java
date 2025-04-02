@@ -11,7 +11,7 @@ import com.chtrembl.petstoreapp.model.Tag;
 public interface PetStoreService {
 	Collection<Pet> getPets(String category);
 
-	Collection<Product> getProducts(String category, List<Tag> tags) throws Exception;
+	Collection<Product> getProducts(String category, List<Tag> tags);
 
 	void updateOrder(long productId, int quantity, boolean completeOrder);
 

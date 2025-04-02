@@ -3,6 +3,8 @@ bing:
     subscription:
       key: ${BING_SEARCH_SUBSCRIPTION_KEY:}
 petstore:
+  azure:
+    function-url: ${PETSTORE_AZUREFUNCTION_URL:http://localhost:8084}
   service:
     pet:
      url: ${PETSTOREPETSERVICE_URL:http://localhost:8081}

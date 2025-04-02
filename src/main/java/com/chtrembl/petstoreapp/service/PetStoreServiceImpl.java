@@ -10,6 +10,7 @@ import javax.annotation.PostConstruct;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -38,6 +39,10 @@ import reactor.core.publisher.Mono;
 
 @Service
 public class PetStoreServiceImpl implements PetStoreService {
+
+	@Value("${petstore.azure.function-url}")
+	private String petStoreAzureFunctionURL;
+
 	private static final Logger logger = LoggerFactory.getLogger(PetStoreServiceImpl.class);
 
 	private final User sessionUser;
@@ -47,6 +52,7 @@ public class PetStoreServiceImpl implements PetStoreService {
 	private WebClient petServiceWebClient = null;
 	private WebClient productServiceWebClient = null;
 	private WebClient orderServiceWebClient = null;
+	private WebClient azureFunctionWebClient = null;
 
 	public PetStoreServiceImpl(User sessionUser, ContainerEnvironment containerEnvironment, WebRequest webRequest) {
 		this.sessionUser = sessionUser;
@@ -60,6 +66,7 @@ public class PetStoreServiceImpl implements PetStoreService {
 		productServiceWebClient = WebClient.builder().baseUrl(containerEnvironment.getPetStoreProductServiceURL())
 				.build();
 		orderServiceWebClient = WebClient.builder().baseUrl(containerEnvironment.getPetStoreOrderServiceURL()).build();
+		azureFunctionWebClient = WebClient.builder().baseUrl(petStoreAzureFunctionURL).build();
 	}
 
 	@Override
@@ -113,7 +120,7 @@ public class PetStoreServiceImpl implements PetStoreService {
 	}
 
 	@Override
-	public Collection<Product> getProducts(String category, List<Tag> tags) throws Exception {
+	public Collection<Product> getProducts(String category, List<Tag> tags) {
 		List<Product> products = new ArrayList<>();
 
 		sessionUser.getTelemetryClient()
@@ -149,9 +156,7 @@ public class PetStoreServiceImpl implements PetStoreService {
 			}
 			sessionUser.getTelemetryClient().trackMetric("Product count", products.size());
 
-			throw new Exception("Cannot move further");
-
-			// return products;
+			return products;
 		} catch (
 
 		WebClientException wce) {
@@ -209,6 +214,12 @@ public class PetStoreServiceImpl implements PetStoreService {
 			Consumer<HttpHeaders> consumer = it -> it.addAll(webRequest.getHeaders());
 
 			updatedOrder = orderServiceWebClient.post().uri("petstoreorderservice/v2/store/order")
+					.body(BodyInserters.fromPublisher(Mono.just(orderJSON), String.class))
+					.accept(MediaType.APPLICATION_JSON).headers(consumer)
+					.header("Content-Type", MediaType.APPLICATION_JSON_VALUE).header("Cache-Control", "no-cache")
+					.retrieve().bodyToMono(Order.class).block();
+
+			azureFunctionWebClient.post().uri("api/HttpExample")
 					.body(BodyInserters.fromPublisher(Mono.just(orderJSON), String.class))
 					.accept(MediaType.APPLICATION_JSON).headers(consumer)
 					.header("Content-Type", MediaType.APPLICATION_JSON_VALUE).header("Cache-Control", "no-cache")
